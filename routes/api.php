@@ -27,7 +27,7 @@ Route::apiResource('projects', ProjectController::class);
 Route::post('projects/{project}/sync-users', [ProjectController::class, 'syncUsers']);
 Route::post('projects/{project}/attach-user', [ProjectController::class, 'attachUser']);
 Route::delete('projects/{project}/detach-user', [ProjectController::class, 'detachUser']);
-Route::post('projects/{projectId}/start-work', [ProjectController::class, 'startWork']);
-Route::post('projects/{projectId}/stop-work', [ProjectController::class, 'stopWork']);
+Route::post('projects/{projectId}/start-work/{role}', [ProjectController::class, 'startWork']);
+Route::post('projects/{projectId}/stop-work/{role}', [ProjectController::class, 'stopWork']);
 
 

@@ -11,7 +11,7 @@ class ProjectService
     public function getAllProjects($itemsPerPage = 15)
     {
         try {
-            return Project::orderBy('created_at', 'DESC')->paginate($itemsPerPage);
+            return Project::with('users')->orderBy('created_at', 'DESC')->paginate($itemsPerPage);
         } catch (Exception $e) {
             throw new Exception('Unable to fetch projects: ' . $e->getMessage());
         }
@@ -82,53 +82,79 @@ class ProjectService
         }
     }
 
-    public function startWork($user, $projectId)
+    public function startWork($user, $projectId, $role)
     {
         try {
-            $user->projects()->updateExistingPivot($projectId, [
-                'start_time' => now(),
-                'last_activity' => now(),
-            ]);
+            // Find the project pivot for this user and role combination
+            $project = $user->projects()
+                ->where('project_id', $projectId)
+                ->wherePivot('user_role', $role) // Ensure we are targeting the correct role
+                ->first();
 
-            return ['message' => 'Work started successfully'];
+            if (!$project) {
+                return ['error' => 'No such project or role for this user'];
+            }
+
+            // Update the specific pivot record for the role (tester, manager, etc.)
+            $user->projects()->newPivotStatementForId($projectId)
+                ->where('user_id', $user->id)
+                ->where('user_role', $role) // Ensure we only update the specific role
+                ->update([
+                    'start_time' => now(),
+                    'last_activity' => now(),
+                ]);
+
+            return ['message' => 'Work started successfully for role: ' . $role];
         } catch (Exception $e) {
             return ['error' => 'An error occurred while starting work'];
         }
     }
 
-    public function stopWork($user, $projectId)
+
+    public function stopWork($user, $projectId, $role)
     {
         try {
-            $project = $user->projects()->where('project_id', $projectId)->first();
+            // Find the project for the user and role
+            $project = $user->projects()
+                ->where('project_id', $projectId)
+                ->wherePivot('user_role', $role) // Ensure we are targeting the correct role
+                ->first();
 
             if (!$project) {
-                return ['error' => 'Project not found for this user'];
+                return ['error' => 'No such project or role for this user'];
             }
 
             $pivot = $project->pivot;
 
+            // Check if the work session has started
             if (is_null($pivot->start_time)) {
-                return ['error' => 'No work session started'];
+                return ['error' => 'No work session started for this role: ' . $role];
             }
 
+            // Calculate the worked hours
             $startTime = new Carbon($pivot->start_time);
             $endTime = Carbon::now();
             $workedMinutes = $endTime->diffInMinutes($startTime);
             $workedHours = $workedMinutes / 60;
 
-            $user->projects()->updateExistingPivot($projectId, [
-                'end_time' => $endTime,
-                'contribution_hours' => $pivot->contribution_hours + $workedHours,
-                'last_activity' => $endTime,
-                'start_time' => null,
-                'end_time' => null,
-            ]);
+            // Update only the pivot record for this role
+            $user->projects()->newPivotStatementForId($projectId)
+                ->where('user_id', $user->id)
+                ->where('user_role', $role) // Ensure we only update the specific role
+                ->update([
+                    'end_time' => $endTime,
+                    'contribution_hours' => $pivot->contribution_hours + $workedHours,
+                    'last_activity' => $endTime,
+                    'start_time' => null,
+                    'end_time' => null,
+                ]);
 
-            return ['message' => 'Work stopped successfully, hours recorded'];
+            return ['message' => 'Work stopped successfully for role: ' . $role];
         } catch (Exception $e) {
             return ['error' => 'An error occurred while stopping work'];
         }
     }
+
 
     public function detachUser($validated, $projectId)
     {

@@ -32,7 +32,7 @@ class ProjectController extends Controller
         try {
             $itemsPerPage = $request->query('items_per_page', 15);
             $projects = $this->projectService->getAllProjects($itemsPerPage);
-            return response()->json(ProjectResource::collection($projects), 200);
+            return response()->json(($projects), 200);
         } catch (Exception $e) {
             return response()->json(['message' => $e->getMessage()], $e->getCode());
         }
@@ -105,17 +105,17 @@ class ProjectController extends Controller
         return response()->json($result);
     }
 
-    public function startWork($projectId)
+    public function startWork($projectId, $role)
     {
         $user = auth()->user();
-        $result = $this->projectService->startWork($user, $projectId);
+        $result = $this->projectService->startWork($user, $projectId, $role);
         return response()->json($result);
     }
 
-    public function stopWork($projectId)
+    public function stopWork($projectId, $role)
     {
         $user = auth()->user();
-        $result = $this->projectService->stopWork($user, $projectId);
+        $result = $this->projectService->stopWork($user, $projectId, $role);
         return response()->json($result);
     }
 
